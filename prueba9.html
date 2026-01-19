@@ -309,7 +309,8 @@
             border: 1px solid #1c2a3a;
             border-radius: 12px;
             padding: 10px;
-
+            max-height: 100px;
+            overflow-y: scroll;
             height: fit-content;
             /* ✅ ajusta altura al contenido */
             margin: 0;
@@ -728,6 +729,57 @@
         }
         function renderQueryBlock(sql) { return `<div class="term-msg"><b>SQL&gt;</b> ${escapeHtml(sql.trim())}</div><div style="height:8px;"></div>`; }
 
+        function parseSelectColsWithAlias(selPart) {
+            return selPart
+                .split(",")
+                .map(s => s.trim())
+                .filter(Boolean)
+                .map(exprRaw => {
+                    let expr = exprRaw;
+                    let alias = null;
+
+                    // 1) Con AS
+                    let m = expr.match(
+                        /\s+as\s+(?:'([^']+)'|"([^"]+)"|\(([^)]+)\)|([a-zA-Z][a-zA-Z0-9_]*))\s*$/i
+                    );
+
+                    if (m) {
+                        alias = m[1] || m[2] || m[3] || m[4];
+                        expr = expr.slice(0, m.index).trim();
+                    } else {
+                        // 2) Sin AS
+                        m = expr.match(
+                            /\s+(?:'([^']+)'|"([^"]+)"|\(([^)]+)\)|([a-zA-Z][a-zA-Z0-9_]*))\s*$/
+                        );
+                        if (m) {
+                            const maybeAlias = m[1] || m[2] || m[3] || m[4];
+                            const justOneWord = expr.trim().match(/^[a-zA-Z][a-zA-Z0-9_]*$/);
+
+                            if (!justOneWord || maybeAlias !== justOneWord[0]) {
+                                alias = maybeAlias;
+                                expr = expr.slice(0, m.index).trim();
+                            }
+                        }
+                    }
+
+                    // Extraer columna fuente
+                    let src = expr
+                        .replace(/".*?"/g, "")
+                        .replace(/\b[a-zA-Z][a-zA-Z0-9_]*\s*\(/g, "")
+                        .replace(/[()]/g, " ")
+                        .trim()
+                        .split(/\s+/)[0] || "";
+
+                    src = src.replace(/[^a-z0-9_]/gi, "").toLowerCase();
+
+                    let label = alias ? alias : src.toUpperCase();
+
+                    return { src, label };
+                })
+                .filter(x => x.src);
+        }
+
+
         function runSimulatedAndRender(rawSql) {
             const sql = normalizeForCheck(rawSql);
             if (!sql.startsWith("select ")) {
@@ -742,22 +794,26 @@
             const selPart = extractSelectPart(sql);
             const isStar = /\b\*\b/.test(selPart);
 
-            let cols;
+            let colDefs;
+
             if (isStar) {
-                cols = Object.keys(SIM_DB[from][0] || {});
+                const keys = Object.keys(SIM_DB[from][0] || {});
+                colDefs = keys.map(k => ({
+                    src: k.toLowerCase(),
+                    label: k.toUpperCase()
+                }));
             } else {
-                cols = selPart.split(",").map(x => x.trim())
-                    .map(x => x.replace(/\bas\b\s+.+$/i, "").trim())
-                    .map(x => x.replace(/".+?"$/g, "").trim())
-                    .map(x => x.replace(/\(.+?\)$/g, "").trim())
-                    .filter(Boolean)
-                    .map(x => x.replace(/[^a-z0-9_]/g, ""));
-                cols = cols.filter(c => c.length);
-                if (!cols.length) {
-                    termWriteHTML(renderQueryBlock(rawSql) + `<div class="term-msg">No he podido interpretar las columnas del SELECT (simulación limitada).</div>`);
+                colDefs = parseSelectColsWithAlias(selPart);
+
+                if (!colDefs.length) {
+                    termWriteHTML(
+                        renderQueryBlock(rawSql) +
+                        `<div class="term-msg">No he podido interpretar las columnas del SELECT (simulación limitada).</div>`
+                    );
                     return;
                 }
             }
+
 
             let rows = SIM_DB[from].map(r => ({ ...r }));
 
@@ -830,13 +886,18 @@
                 if (dir === "desc") rows.reverse();
             }
 
+            const labels = colDefs.map(d => d.label);
+
             rows = rows.map(r => {
                 const out = {};
-                for (const c of cols) out[c] = r[c];
+                for (const d of colDefs) {
+                    out[d.label] = r[d.src] ?? null;
+                }
                 return out;
             });
 
-            termWriteHTML(renderQueryBlock(rawSql) + renderTable(rows, cols));
+            termWriteHTML(renderQueryBlock(rawSql) + renderTable(rows, labels));
+
         }
 
         function newExercise() {
