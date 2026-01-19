@@ -1,0 +1,547 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>SGBD HR - Práctica estilo profe (CodeMirror)</title>
+
+    <!-- CodeMirror (v5) por CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/material-darker.min.css">
+
+    <style>
+        body {
+            font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+            margin: 0;
+            background: #0b0f14;
+            color: #e8eef6;
+        }
+
+        header {
+            padding: 16px 20px;
+            background: #0f1722;
+            border-bottom: 1px solid #1c2a3a;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 18px;
+        }
+
+        main {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+            padding: 14px;
+        }
+
+        .card {
+            background: #0f1722;
+            border: 1px solid #1c2a3a;
+            border-radius: 12px;
+            padding: 14px;
+        }
+
+        .muted {
+            color: #9fb2c8;
+            font-size: 12px;
+        }
+
+        .pill {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 999px;
+            background: #122033;
+            border: 1px solid #1c2a3a;
+            font-size: 12px;
+        }
+
+        button {
+            background: #1b6cff;
+            color: white;
+            border: none;
+            padding: 10px 12px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        button.secondary {
+            background: #122033;
+            border: 1px solid #1c2a3a;
+            color: #e8eef6;
+        }
+
+        button:disabled {
+            opacity: .55;
+            cursor: not-allowed;
+        }
+
+        pre {
+            white-space: pre-wrap;
+            word-break: break-word;
+            background: #0b0f14;
+            border: 1px solid #1c2a3a;
+            border-radius: 10px;
+            padding: 10px;
+            margin: 10px 0 0;
+            font-size: 12px;
+        }
+
+        .row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .ok {
+            color: #7CFFB2;
+            font-weight: 700;
+        }
+
+        .bad {
+            color: #FF8A8A;
+            font-weight: 700;
+        }
+
+        details {
+            margin-top: 10px;
+        }
+
+        summary {
+            cursor: pointer;
+        }
+
+        .divider {
+            height: 1px;
+            background: #1c2a3a;
+            margin: 12px 0;
+        }
+
+        .tiny {
+            font-size: 11px;
+            color: #9fb2c8;
+        }
+
+        @media (max-width: 960px) {
+            main {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* CodeMirror wrapper */
+        .cm-wrap {
+            border: 1px solid #1c2a3a;
+            border-radius: 10px;
+            overflow: hidden;
+            background: #0b0f14;
+        }
+
+        .CodeMirror {
+            height: 180px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 13px;
+            background: #0b0f14;
+        }
+
+        /* “Línea rosa” (marcado de error) */
+        .cm-line-error {
+            background: rgba(255, 105, 180, 0.20);
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <h1>SGBD HR (estilo tu profesor)</h1>
+        <div class="muted">
+            Ejercicios progresivos · Esquema HR completo siempre visible · Funciones permitidas:
+            <span id="funcs" class="pill"></span>
+        </div>
+    </header>
+
+    <main>
+        <section class="card">
+            <div class="row" style="justify-content:space-between;">
+                <div class="row">
+                    <span class="pill">Nivel: <b id="level">1</b></span>
+                    <span class="pill">Hechos: <b id="done">0</b></span>
+                    <span class="pill">Tipo: <b id="type">—</b></span>
+                </div>
+                <div class="row">
+                    <button class="secondary" id="reset">Reiniciar progreso</button>
+                    <button id="new">Nuevo ejercicio</button>
+                </div>
+            </div>
+
+            <div class="divider"></div>
+
+            <h2 style="margin:0 0 6px; font-size:16px;">📝 Enunciado</h2>
+            <div id="statement" style="line-height:1.35;"></div>
+
+            <div class="divider"></div>
+
+            <h2 style="margin:0 0 6px; font-size:16px;">⌨️ Tu SQL</h2>
+
+            <div class="cm-wrap">
+                <textarea id="sql" placeholder="Escribe SOLO el SQL, como en SQLDeveloper..."></textarea>
+            </div>
+
+            <div class="row" style="margin-top:10px;">
+                <button id="check">Corregir ✅</button>
+                <span id="msg" class="muted"></span>
+            </div>
+
+            <details style="margin-top:12px;">
+                <summary>⏱️ Tiempo (opción 2)</summary>
+                <div class="tiny" style="margin-top:8px;">
+                    La web guarda el momento en que se genera el ejercicio y calcula el tiempo cuando pulsas “Corregir”.
+                </div>
+                <pre id="timeBox">—</pre>
+            </details>
+
+            <details style="margin-top:12px;">
+                <summary>🎨 Línea rosa</summary>
+                <div class="tiny" style="margin-top:8px;">
+                    Marca la línea del cursor si detecta comillas simples sin cerrar (') o paréntesis desbalanceados.
+                </div>
+            </details>
+        </section>
+
+        <section class="card">
+            <h2 style="margin:0 0 8px; font-size:16px;">📘 Esquema HR (completo)</h2>
+            <div id="schema"></div>
+
+            <details>
+                <summary>⚙️ Configuración (editable)</summary>
+                <div class="muted" style="margin-top:8px;">
+                    Puedes editar en el código: <b>allowedFunctions</b>, <b>difficultyRule</b> y <b>exercises</b>.
+                </div>
+                <pre id="configPreview"></pre>
+            </details>
+        </section>
+    </main>
+
+    <!-- CodeMirror scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/sql/sql.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/selection/active-line.min.js"></script>
+
+    <script>
+        // =========================================================
+        // CONFIGURACIÓN (proyecto)
+        // =========================================================
+        const CONFIG = {
+            allowedFunctions: ["LOWER"],
+            difficultyRule: { bumpEvery: 3, maxLevel: 5 },
+            schema: [
+                { name: "REGIONS", cols: ["REGION_ID", "REGION_NAME"] },
+                { name: "COUNTRIES", cols: ["COUNTRY_ID", "COUNTRY_NAME", "REGION_ID"] },
+                { name: "LOCATIONS", cols: ["LOCATION_ID", "STREET_ADDRESS", "POSTAL_CODE", "CITY", "STATE_PROVINCE", "COUNTRY_ID"] },
+                { name: "DEPARTMENTS", cols: ["DEPARTMENT_ID", "DEPARTMENT_NAME", "MANAGER_ID", "LOCATION_ID"] },
+                { name: "JOBS", cols: ["JOB_ID", "JOB_TITLE", "MIN_SALARY", "MAX_SALARY"] },
+                { name: "EMPLOYEES", cols: ["EMPLOYEE_ID", "FIRST_NAME", "LAST_NAME", "EMAIL", "PHONE_NUMBER", "HIRE_DATE", "JOB_ID", "SALARY", "COMMISSION_PCT", "MANAGER_ID", "DEPARTMENT_ID"] },
+                { name: "JOB_HISTORY", cols: ["EMPLOYEE_ID", "START_DATE", "END_DATE", "JOB_ID", "DEPARTMENT_ID"] },
+            ],
+            exercises: [
+                // Nivel 1
+                { level: 1, type: "SELECT", statement: "Visualizar el <b>nombre</b> y el <b>número de teléfono</b> de los empleados.", solution: "select first_name as Nombre, phone_number as Telefono from employees;" },
+                { level: 1, type: "SELECT", statement: "Visualizar el <b>nombre</b> y el <b>tipo de trabajo</b> (FIRST_NAME, JOB_ID). Cabecera <b>NOMBRE</b> y <b>Tipo de Trabajo</b>.", solution: "select first_name as Nombre, job_id as Tipo_de_Trabajo from employees;" },
+                { level: 1, type: "ORDER BY", statement: "Listar <b>nombre</b>, <b>salario</b> y <b>teléfono</b> ordenados <b>descendentemente por salario</b>.", solution: "select first_name, salary, phone_number from employees order by salary desc;" },
+
+                // Nivel 2
+                { level: 2, type: "WHERE", statement: "Averigua los empleados que trabajen en el <b>departamento 100</b>.", solution: "select * from employees where department_id = 100;" },
+                { level: 2, type: "WHERE", statement: "Seleccionar los empleados cuyo tipo de trabajo sea <b>'ST_CLERK'</b>.", solution: "select * from employees where job_id = 'ST_CLERK';" },
+                { level: 2, type: "WHERE", statement: "Indicar los datos de los empleados con apellido <b>'Smith'</b> (LAST_NAME).", solution: "select * from employees where last_name = 'Smith';" },
+
+                // Nivel 3
+                { level: 3, type: "BETWEEN", statement: "Averiguar empleados entre <b>departamento 40</b> y <b>60</b> (BETWEEN).", solution: "select * from employees where department_id between 40 and 60;" },
+                { level: 3, type: "IN", statement: "Averiguar empleados de departamentos <b>30</b>, <b>60</b> y <b>90</b> (IN).", solution: "select * from employees where department_id in (30,60,90);" },
+                { level: 3, type: "FECHAS", statement: "Empleados que empezaron a trabajar <b>a partir del año 2006</b> (sin funciones nuevas).", solution: "select * from employees where hire_date >= date '2006-01-01';" },
+
+                // Nivel 4
+                { level: 4, type: "LIKE", statement: "Datos de empleados cuyo <b>FIRST_NAME</b> empieza por <b>'J'</b> (LIKE).", solution: "select * from employees where first_name like 'J%';" },
+                { level: 4, type: "IS NULL", statement: "Listar ciudades de <b>LOCATIONS</b> que <b>no tienen STATE_PROVINCE</b> (IS NULL).", solution: "select city from locations where state_province is null;" },
+                { level: 4, type: "AND", statement: "Nombre, fecha de entrada y job_id de empleados <b>IT_PROG</b> que ganen <b>menos de 6000</b>.", solution: "select first_name, hire_date, job_id from employees where job_id = 'IT_PROG' and salary < 6000;" },
+
+                // Nivel 5
+                {
+                    level: 5, type: "SUBCONSULTA", statement: "Compañeros que trabajan en el mismo departamento que <b>John Chen</b> (subconsulta).",
+                    solution:
+                        `select *
+from employees
+where department_id = (
+  select department_id
+  from employees
+  where first_name = 'John' and last_name = 'Chen'
+);`},
+                {
+                    level: 5, type: "SUBCONSULTA", statement: "¿Qué departamentos tienen su sede en <b>Toronto</b>? (subconsulta).",
+                    solution:
+                        `select *
+from departments
+where location_id = (
+  select location_id
+  from locations
+  where city = 'Toronto'
+);`}
+            ]
+        };
+
+        // =========================================================
+        // APP
+        // =========================================================
+        const $ = (id) => document.getElementById(id);
+        const storeKey = "sgbd_hr_project_v1";
+
+        function normalizeSQL(s) {
+            return (s || "")
+                .trim()
+                .replace(/\s+/g, " ")
+                .replace(/\s*;\s*$/, ";")
+                .toLowerCase();
+        }
+
+        function hasOnlyAllowedFunctions(sql) {
+            const allowed = new Set(CONFIG.allowedFunctions.map(x => x.toLowerCase()));
+            const hits = [];
+            const re = /\b([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/g;
+            let m;
+            while ((m = re.exec(sql)) !== null) {
+                const fn = m[1].toLowerCase();
+                if (!allowed.has(fn)) hits.push(m[1]);
+            }
+            return { ok: hits.length === 0, hits };
+        }
+
+        function renderSchema() {
+            const wrap = $("schema");
+            wrap.innerHTML = "";
+            CONFIG.schema.forEach(t => {
+                const div = document.createElement("div");
+                div.style.margin = "10px 0";
+                div.innerHTML = `
+        <div class="pill">🟦 <b>${t.name}</b></div>
+        <div class="muted" style="margin:6px 0 0 8px;">- ${t.cols.join("<br>- ")}</div>`;
+                wrap.appendChild(div);
+            });
+        }
+
+        function loadProgress() {
+            try {
+                return JSON.parse(localStorage.getItem(storeKey)) || {
+                    done: 0,
+                    level: 1,
+                    lastIndexByLevel: {},
+                    exerciseStartedAt: null,
+                    lastExerciseId: null
+                };
+            } catch {
+                return { done: 0, level: 1, lastIndexByLevel: {}, exerciseStartedAt: null, lastExerciseId: null };
+            }
+        }
+
+        function saveProgress(p) { localStorage.setItem(storeKey, JSON.stringify(p)); }
+
+        function poolForLevel(level) {
+            return CONFIG.exercises.filter(e => e.level === level);
+        }
+
+        function pickExercise(level, lastIndex) {
+            const pool = poolForLevel(level);
+            if (pool.length === 0) return null;
+            const idx = (lastIndex + 1) % pool.length;
+            return { ex: pool[idx], idx };
+        }
+
+        function formatDuration(ms) {
+            if (ms == null) return "—";
+            const totalSec = Math.max(0, Math.round(ms / 1000));
+            const min = Math.floor(totalSec / 60);
+            const sec = totalSec % 60;
+            if (min === 0) return `${sec}s`;
+            return `${min}m ${sec}s`;
+        }
+
+        function updateUI() {
+            const p = loadProgress();
+            $("done").textContent = String(p.done);
+            $("level").textContent = String(p.level);
+            $("funcs").textContent = CONFIG.allowedFunctions.join(", ");
+            const preview = {
+                allowedFunctions: CONFIG.allowedFunctions,
+                difficultyRule: CONFIG.difficultyRule,
+                exercises: CONFIG.exercises.map(e => ({ level: e.level, type: e.type, statement: e.statement }))
+            };
+            $("configPreview").textContent = JSON.stringify(preview, null, 2);
+        }
+
+        function showTime(label) {
+            const p = loadProgress();
+            const start = p.exerciseStartedAt;
+            const elapsed = (start ? (Date.now() - start) : null);
+            $("timeBox").textContent = `${label}\nEjercicio: ${p.lastExerciseId ?? "—"}\nTiempo aprox: ${formatDuration(elapsed)}`;
+            return elapsed;
+        }
+
+        // =========================================================
+        // CodeMirror (editor)
+        // =========================================================
+        const editor = CodeMirror.fromTextArea(document.getElementById("sql"), {
+            mode: "text/x-sql",
+            theme: "material-darker",
+            lineNumbers: true,
+            indentUnit: 2,
+            tabSize: 2,
+            matchBrackets: true,
+            styleActiveLine: true
+        });
+
+        // “Línea rosa” simple: marca la línea del cursor si hay comillas sin cerrar o paréntesis desbalanceados
+        let lastMarkedLine = null;
+
+        function basicErrorCheck(sql) {
+            const quoteCount = (sql.match(/'/g) || []).length;
+            const quotesOdd = (quoteCount % 2) === 1;
+
+            let bal = 0;
+            for (const ch of sql) {
+                if (ch === "(") bal++;
+                if (ch === ")") bal--;
+            }
+            const parenBad = (bal !== 0);
+
+            return { hasError: quotesOdd || parenBad, quotesOdd, parenBad };
+        }
+
+        function clearLineMark() {
+            if (lastMarkedLine !== null) {
+                editor.removeLineClass(lastMarkedLine, "background", "cm-line-error");
+                lastMarkedLine = null;
+            }
+        }
+
+        function markCurrentLineIfError() {
+            clearLineMark();
+            const sql = editor.getValue();
+            const check = basicErrorCheck(sql);
+            if (!check.hasError) return;
+
+            const cur = editor.getCursor();
+            lastMarkedLine = cur.line;
+            editor.addLineClass(lastMarkedLine, "background", "cm-line-error");
+        }
+
+        editor.on("change", () => markCurrentLineIfError());
+        editor.on("cursorActivity", () => markCurrentLineIfError());
+
+        // =========================================================
+        // Ejercicios
+        // =========================================================
+        function newExercise() {
+            const p = loadProgress();
+            const lastIndex = p.lastIndexByLevel[p.level] ?? -1;
+            const picked = pickExercise(p.level, lastIndex);
+
+            if (!picked) {
+                $("statement").innerHTML = "No hay ejercicios para este nivel. Añade más en CONFIG.exercises.";
+                $("type").textContent = "—";
+                return;
+            }
+
+            p.lastIndexByLevel[p.level] = picked.idx;
+            p.exerciseStartedAt = Date.now();
+            p.lastExerciseId = `${p.level}:${picked.idx}`;
+            saveProgress(p);
+
+            $("statement").innerHTML = picked.ex.statement;
+            $("type").textContent = picked.ex.type || "—";
+
+            editor.setValue("");
+            editor.focus();
+            $("msg").textContent = "";
+            $("timeBox").textContent = "Inicio registrado. Responde y pulsa “Corregir” para ver el tiempo.";
+            clearLineMark();
+        }
+
+        function markDoneAuto() {
+            const p = loadProgress();
+            p.done += 1;
+
+            const bumpEvery = CONFIG.difficultyRule.bumpEvery;
+            const maxLevel = CONFIG.difficultyRule.maxLevel;
+            if (p.done % bumpEvery === 0) {
+                p.level = Math.min(p.level + 1, maxLevel);
+            }
+
+            saveProgress(p);
+            updateUI();
+            newExercise();
+        }
+
+        // ✅ NUEVO comportamiento:
+        // - NO muestra solución
+        // - Si está bien -> pasa al siguiente ejercicio
+        // - Si está mal -> mensaje y se queda
+        function checkSolution() {
+            const userSQL = editor.getValue();
+
+            // Funciones permitidas
+            const fnCheck = hasOnlyAllowedFunctions(userSQL);
+            if (!fnCheck.ok) {
+                $("msg").innerHTML =
+                    `<span class="bad">❌ Funciones no permitidas:</span> ${fnCheck.hits.join(", ")}. Permitidas: ${CONFIG.allowedFunctions.join(", ")}`;
+                showTime("Tiempo al corregir:");
+                return;
+            }
+
+            // Localizar ejercicio actual
+            const p = loadProgress();
+            const parts = (p.lastExerciseId || "").split(":");
+            const idx = parts.length === 2 ? Number(parts[1]) : null;
+            const pool = poolForLevel(p.level);
+
+            if (idx === null || !pool[idx]) {
+                $("msg").innerHTML = `<span class="bad">❌ Error interno.</span> Pulsa “Nuevo ejercicio”.`;
+                showTime("Tiempo al corregir:");
+                return;
+            }
+
+            const expected = pool[idx].solution;
+            const ok = normalizeSQL(userSQL) === normalizeSQL(expected);
+
+            if (ok) {
+                $("msg").innerHTML = `<span class="ok">✅ Correcto</span> Pasando al siguiente...`;
+                showTime("Tiempo al corregir:");
+                // pequeño delay para que se vea el mensaje
+                setTimeout(() => {
+                    markDoneAuto();
+                }, 450);
+            } else {
+                $("msg").innerHTML = `<span class="bad">❌ Incorrecto</span> Revisa tu SQL y vuelve a corregir.`;
+                showTime("Tiempo al corregir:");
+            }
+        }
+
+        function resetProgress() {
+            localStorage.removeItem(storeKey);
+            updateUI();
+            newExercise();
+        }
+
+        // INIT
+        renderSchema();
+        updateUI();
+        newExercise();
+
+        document.getElementById("new").addEventListener("click", newExercise);
+        document.getElementById("check").addEventListener("click", checkSolution);
+        document.getElementById("reset").addEventListener("click", resetProgress);
+    </script>
+</body>
+
+</html>

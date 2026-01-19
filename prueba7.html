@@ -1,0 +1,1089 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>SGBD HR - Prácticas (CodeMirror + Terminal)</title>
+
+    <!-- CodeMirror (v5) por CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/material-darker.min.css">
+
+    <style>
+        body {
+            font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+            margin: 0;
+            background: #0b0f14;
+            color: #e8eef6;
+        }
+
+        header {
+            padding: 16px 20px;
+            background: #0f1722;
+            border-bottom: 1px solid #1c2a3a;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 18px;
+        }
+
+        main {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+            padding: 14px;
+        }
+
+        .card {
+            background: #0f1722;
+            border: 1px solid #1c2a3a;
+            border-radius: 12px;
+            padding: 14px;
+        }
+
+        .muted {
+            color: #9fb2c8;
+            font-size: 12px;
+        }
+
+        .pill {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 999px;
+            background: #122033;
+            border: 1px solid #1c2a3a;
+            font-size: 12px;
+        }
+
+        button {
+            background: #1b6cff;
+            color: white;
+            border: none;
+            padding: 10px 12px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        button.secondary {
+            background: #122033;
+            border: 1px solid #1c2a3a;
+            color: #e8eef6;
+        }
+
+        button:disabled {
+            opacity: .55;
+            cursor: not-allowed;
+        }
+
+        pre {
+            white-space: pre-wrap;
+            word-break: break-word;
+            background: #0b0f14;
+            border: 1px solid #1c2a3a;
+            border-radius: 10px;
+            padding: 10px;
+            margin: 10px 0 0;
+            font-size: 12px;
+        }
+
+        .row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .ok {
+            color: #7CFFB2;
+            font-weight: 700;
+        }
+
+        .bad {
+            color: #FF8A8A;
+            font-weight: 700;
+        }
+
+        .divider {
+            height: 1px;
+            background: #1c2a3a;
+            margin: 12px 0;
+        }
+
+        .tiny {
+            font-size: 11px;
+            color: #9fb2c8;
+        }
+
+        @media (max-width: 960px) {
+            main {
+                grid-template-columns: 1fr;
+            }
+
+            .sidebar {
+                position: static;
+                width: auto;
+                margin: 0 14px 14px;
+            }
+
+            body {
+                padding-bottom: 0;
+            }
+        }
+
+        .cm-wrap {
+            border: 1px solid #1c2a3a;
+            border-radius: 10px;
+            overflow: hidden;
+            background: #0b0f14;
+        }
+
+        .CodeMirror {
+            height: 180px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 13px;
+            background: #0b0f14;
+        }
+
+        /* “Línea rosa” (marcado de error) - sigue funcionando internamente */
+        .cm-line-error {
+            background: rgba(255, 105, 180, 0.20);
+        }
+
+        /* Terminal */
+        .terminal-wrap {
+            margin-top: 12px;
+            border: 1px solid #1c2a3a;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #0b0f14;
+        }
+
+        .terminal-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 12px;
+            background: #0f1722;
+            border-bottom: 1px solid #1c2a3a;
+            font-weight: 700;
+        }
+
+        .terminal-body {
+            padding: 10px 12px;
+            overflow: auto;
+            max-height: 240px;
+        }
+
+        table.term-table {
+            border-collapse: collapse;
+            width: 100%;
+            font-size: 12px;
+        }
+
+        .term-table th,
+        .term-table td {
+            border: 1px solid #1c2a3a;
+            padding: 6px 8px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .term-table th {
+            background: #0f1722;
+            position: sticky;
+            top: 0;
+        }
+
+        .term-msg {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 12px;
+            color: #9fb2c8;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        /* ✅ Oculto (sin interfaz), pero sigue existiendo para el control interno */
+        #timeBox {
+            display: none;
+        }
+
+        /* =========================
+       ✅ SIDEBAR (menú derecha)
+       ========================= */
+        .sidebar {
+            position: fixed;
+            right: 14px;
+            top: 78px;
+            width: 230px;
+            z-index: 50;
+        }
+
+        .side-card {
+            background: #0f1722;
+            border: 1px solid #1c2a3a;
+            border-radius: 12px;
+            padding: 12px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, .25);
+        }
+
+        .side-title {
+            font-weight: 800;
+            font-size: 13px;
+            margin: 0 0 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .side-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .side-btn {
+            width: 100%;
+            text-align: left;
+            padding: 10px 10px;
+            border-radius: 10px;
+            border: 1px solid #1c2a3a;
+            background: #0b0f14;
+            color: #e8eef6;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 12px;
+        }
+
+        .side-btn:hover {
+            border-color: #2a3e56;
+        }
+
+        .side-btn.active {
+            outline: 2px solid rgba(27, 108, 255, .55);
+            border-color: #2a3e56;
+            background: #0c1420;
+        }
+
+        .side-note {
+            margin-top: 10px;
+            font-size: 11px;
+            color: #9fb2c8;
+            line-height: 1.25;
+        }
+
+        @media (min-width: 961px) {
+            body {
+                padding-right: 260px;
+            }
+        }
+
+        /* =========================
+       ✅ ESQUEMA HR en 2 columnas
+       ========================= */
+        .schema-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            /* 2 tablas por fila */
+            gap: 10px;
+        }
+
+        @media (max-width: 520px) {
+            .schema-grid {
+                grid-template-columns: 1fr;
+            }
+
+            /* en móvil: 1 por fila */
+        }
+
+        .table-box {
+            background: #0b0f14;
+            border: 1px solid #1c2a3a;
+            border-radius: 12px;
+            padding: 10px;
+        }
+
+        .table-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 900;
+            font-size: 12px;
+            margin-bottom: 8px;
+        }
+
+        .cols-list {
+            margin: 0;
+            padding-left: 16px;
+            color: #9fb2c8;
+            font-size: 12px;
+            line-height: 1.25;
+        }
+
+        .cols-list li {
+            margin: 2px 0;
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <h1>SGBD HR (estilo tu profesor)</h1>
+        <div class="muted">
+            Ejercicios progresivos · Esquema HR completo siempre visible · Funciones permitidas:
+            <span id="funcs" class="pill"></span>
+        </div>
+    </header>
+
+    <!-- ✅ MENÚ LATERAL DERECHA -->
+    <aside class="sidebar">
+        <div class="side-card">
+            <div class="side-title">
+                <span>📌 Menú</span>
+                <span class="pill" id="filterPill">Todos</span>
+            </div>
+
+            <div class="side-list" id="menuList">
+                <button class="side-btn active" data-type="ALL">✅ Todos (modo normal)</button>
+                <button class="side-btn" data-type="SELECT">SELECT</button>
+                <button class="side-btn" data-type="WHERE">WHERE</button>
+                <button class="side-btn" data-type="ORDER BY">ORDER BY</button>
+                <button class="side-btn" data-type="LIKE">LIKE</button>
+                <button class="side-btn" data-type="IS NULL">IS NULL</button>
+                <button class="side-btn" data-type="IN">IN</button>
+                <button class="side-btn" data-type="BETWEEN">BETWEEN</button>
+                <button class="side-btn" data-type="SUBCONSULTA">SUBCONSULTA</button>
+            </div>
+
+            <div class="side-note">
+                El menú fuerza el <b>tipo de ejercicio</b> que te sale al pulsar “Nuevo ejercicio” o al pasar con
+                “Siguiente”.
+                (Si no hay ejercicios de ese tipo en tu nivel, te saca uno del tipo elegido de cualquier nivel.)
+            </div>
+        </div>
+    </aside>
+
+    <main>
+        <section class="card">
+            <div class="row" style="justify-content:space-between;">
+                <div class="row">
+                    <span class="pill">Nivel: <b id="level">1</b></span>
+                    <span class="pill">Hechos: <b id="done">0</b></span>
+                    <span class="pill">Tipo: <b id="type">—</b></span>
+                </div>
+                <div class="row">
+                    <button class="secondary" id="reset">Reiniciar progreso</button>
+                    <button id="new">Nuevo ejercicio</button>
+                </div>
+            </div>
+
+            <div class="divider"></div>
+
+            <h2 style="margin:0 0 6px; font-size:16px;">📝 Enunciado</h2>
+            <div id="statement" style="line-height:1.35;"></div>
+
+            <div class="divider"></div>
+
+            <h2 style="margin:0 0 6px; font-size:16px;">⌨️ Tu SQL</h2>
+            <div class="cm-wrap">
+                <textarea id="sql" placeholder="Escribe SOLO el SQL, como en SQLDeveloper..."></textarea>
+            </div>
+
+            <div class="row" style="margin-top:10px;">
+                <button id="check">Corregir ✅</button>
+                <span id="msg" class="muted"></span>
+            </div>
+
+            <!-- TERMINAL -->
+            <div class="terminal-wrap">
+                <div class="terminal-head">
+                    <span>TERMINAL</span>
+                    <button class="secondary" id="clearTerm" style="padding:8px 10px;">Limpiar</button>
+                </div>
+                <div class="terminal-body" id="terminal">
+                    <div class="term-msg">Listo. Escribe tu SQL y pulsa “Corregir ✅”.</div>
+                </div>
+            </div>
+
+            <!-- oculto (tiempo interno) -->
+            <pre id="timeBox">—</pre>
+        </section>
+
+        <section class="card">
+            <h2 style="margin:0 0 8px; font-size:16px;">📘 Esquema HR (completo)</h2>
+
+            <!-- ✅ ahora será una rejilla 2 por fila -->
+            <div id="schema" class="schema-grid"></div>
+
+
+        </section>
+    </main>
+
+    <!-- CodeMirror scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/sql/sql.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/selection/active-line.min.js"></script>
+
+    <script>
+        // =======================
+        // CONFIG
+        // =======================
+        const CONFIG = {
+            allowedFunctions: ["LOWER"],
+            difficultyRule: { bumpEvery: 3, maxLevel: 5 },
+
+            schema: [
+                { name: "REGIONS", cols: ["REGION_ID", "REGION_NAME"] },
+                { name: "COUNTRIES", cols: ["COUNTRY_ID", "COUNTRY_NAME", "REGION_ID"] },
+                { name: "LOCATIONS", cols: ["LOCATION_ID", "STREET_ADDRESS", "POSTAL_CODE", "CITY", "STATE_PROVINCE", "COUNTRY_ID"] },
+                { name: "DEPARTMENTS", cols: ["DEPARTMENT_ID", "DEPARTMENT_NAME", "MANAGER_ID", "LOCATION_ID"] },
+                { name: "JOBS", cols: ["JOB_ID", "JOB_TITLE", "MIN_SALARY", "MAX_SALARY"] },
+                { name: "EMPLOYEES", cols: ["EMPLOYEE_ID", "FIRST_NAME", "LAST_NAME", "EMAIL", "PHONE_NUMBER", "HIRE_DATE", "JOB_ID", "SALARY", "COMMISSION_PCT", "MANAGER_ID", "DEPARTMENT_ID"] },
+                { name: "JOB_HISTORY", cols: ["EMPLOYEE_ID", "START_DATE", "END_DATE", "JOB_ID", "DEPARTMENT_ID"] },
+            ],
+
+            // Corrector por reglas (flexible, estilo profesor)
+            exercises: [
+                {
+                    level: 1, type: "SELECT", statement: "Visualizar el <b>nombre</b> y el <b>número de teléfono</b> de los empleados.",
+                    rules: { from: "employees", mustSelectAnyOrder: ["first_name", "phone_number"] }
+                },
+                {
+                    level: 1, type: "SELECT", statement: "Visualizar el <b>nombre</b> y el <b>tipo de trabajo</b> (FIRST_NAME, JOB_ID).",
+                    rules: { from: "employees", mustSelectAnyOrder: ["first_name", "job_id"] }
+                },
+                {
+                    level: 1, type: "ORDER BY", statement: "Listar <b>nombre</b>, <b>salario</b> y <b>teléfono</b> ordenados <b>descendentemente por salario</b>.",
+                    rules: { from: "employees", mustSelectAnyOrder: ["first_name", "salary", "phone_number"], orderBy: { col: "salary", dir: "desc" } }
+                },
+                {
+                    level: 2, type: "WHERE", statement: "Averigua los empleados que trabajen en el <b>departamento 100</b>.",
+                    rules: { from: "employees", whereAll: ["department_id = 100"] }
+                },
+                {
+                    level: 2, type: "WHERE", statement: "Seleccionar los empleados cuyo tipo de trabajo sea <b>'ST_CLERK'</b>.",
+                    rules: { from: "employees", whereAll: ["job_id = 'st_clerk'"] }
+                },
+                {
+                    level: 3, type: "LIKE", statement: "Datos de empleados cuyo <b>FIRST_NAME</b> empieza por <b>'J'</b> (LIKE).",
+                    rules: { from: "employees", whereAny: ["first_name like 'j%'"] }
+                },
+                {
+                    level: 3, type: "IN", statement: "Empleados del departamento 60 o 90 (IN).",
+                    rules: { from: "employees", whereAny: ["department_id in (60,90)", "department_id in (60, 90)"] }
+                },
+                {
+                    level: 3, type: "BETWEEN", statement: "Empleados con salario entre 5000 y 18000 (BETWEEN).",
+                    rules: { from: "employees", whereAny: ["salary between 5000 and 18000"] }
+                },
+                {
+                    level: 4, type: "IS NULL", statement: "Listar ciudades de <b>LOCATIONS</b> que <b>no tienen STATE_PROVINCE</b> (IS NULL).",
+                    rules: { from: "locations", mustSelectAnyOrder: ["city"], whereAny: ["state_province is null"] }
+                },
+                {
+                    level: 5, type: "SUBCONSULTA", statement: "Compañeros que trabajan en el mismo departamento que <b>John Chen</b> (subconsulta).",
+                    rules: { from: "employees", whereAll: ["department_id = (", "first_name = 'john'", "last_name = 'chen'"] }
+                },
+            ]
+        };
+
+        // =======================
+        // DATOS SIMULADOS (mini HR)
+        // =======================
+        const SIM_DB = {
+            employees: [
+                { employee_id: 100, first_name: "Steven", last_name: "King", email: "SKING", phone_number: "515.123.4567", hire_date: "2003-06-17", job_id: "AD_PRES", salary: 24000, commission_pct: null, manager_id: null, department_id: 90 },
+                { employee_id: 101, first_name: "Neena", last_name: "Kochhar", email: "NKOCHHAR", phone_number: "515.123.4568", hire_date: "2005-09-21", job_id: "AD_VP", salary: 17000, commission_pct: null, manager_id: 100, department_id: 90 },
+                { employee_id: 102, first_name: "Lex", last_name: "De Haan", email: "LDEHAAN", phone_number: "515.123.4569", hire_date: "2001-01-13", job_id: "AD_VP", salary: 17000, commission_pct: null, manager_id: 100, department_id: 90 },
+                { employee_id: 103, first_name: "Alexander", last_name: "Hunold", email: "AHUNOLD", phone_number: "590.423.4567", hire_date: "2006-01-03", job_id: "IT_PROG", salary: 9000, commission_pct: null, manager_id: 102, department_id: 60 },
+                { employee_id: 104, first_name: "Bruce", last_name: "Ernst", email: "BERNST", phone_number: "590.423.4568", hire_date: "2007-05-21", job_id: "IT_PROG", salary: 6000, commission_pct: null, manager_id: 103, department_id: 60 },
+                { employee_id: 105, first_name: "David", last_name: "Austin", email: "DAUSTIN", phone_number: "590.423.4569", hire_date: "2005-06-25", job_id: "IT_PROG", salary: 4800, commission_pct: null, manager_id: 103, department_id: 60 },
+                { employee_id: 106, first_name: "John", last_name: "Chen", email: "JCHEN", phone_number: "515.124.4567", hire_date: "2006-09-28", job_id: "ST_CLERK", salary: 3200, commission_pct: null, manager_id: 101, department_id: 100 },
+            ],
+            departments: [
+                { department_id: 60, department_name: "IT", manager_id: 103, location_id: 1400 },
+                { department_id: 90, department_name: "Executive", manager_id: 100, location_id: 1700 },
+                { department_id: 100, department_name: "Finance", manager_id: 108, location_id: 1700 },
+            ],
+            locations: [
+                { location_id: 1400, street_address: "2014 Jabberwocky Rd", postal_code: "26192", city: "Southlake", state_province: "Texas", country_id: "US" },
+                { location_id: 1700, street_address: "2004 Charade Rd", postal_code: "98199", city: "Seattle", state_province: null, country_id: "US" },
+                { location_id: 1800, street_address: "147 Spadina Ave", postal_code: "M5V 2L7", city: "Toronto", state_province: "Ontario", country_id: "CA" }
+            ],
+        };
+
+        // =======================
+        // HELPERS
+        // =======================
+        const $ = (id) => document.getElementById(id);
+        const storeKey = "sgbd_hr_project_official_terminal";
+
+        function normalizeForCheck(sql) {
+            return (sql || "")
+                .replace(/--.*$/gm, "")
+                .replace(/\/\*[\s\S]*?\*\//g, "")
+                .trim()
+                .replace(/\s+/g, " ")
+                .replace(/\s*;\s*$/, ";")
+                .toLowerCase();
+        }
+
+        function stripStrings(sql) {
+            return sql.replace(/'([^']|'')*'/g, "''");
+        }
+
+        function escapeHtml(s) {
+            return String(s)
+                .replaceAll("&", "&amp;")
+                .replaceAll("<", "&lt;")
+                .replaceAll(">", "&gt;")
+                .replaceAll('"', "&quot;")
+                .replaceAll("'", "&#039;");
+        }
+
+        function hasOnlyAllowedFunctions(sql) {
+            const allowed = new Set(CONFIG.allowedFunctions.map(x => x.toLowerCase()));
+            const sqlKeywords = new Set([
+                "as", "in", "values", "into", "on", "from", "where", "select", "order",
+                "group", "having", "between", "like", "and", "or", "not", "fetch", "distinct"
+            ]);
+
+            const hits = [];
+            const re = /\b([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/g;
+            let m;
+            while ((m = re.exec(sql)) !== null) {
+                const word = m[1].toLowerCase();
+                if (sqlKeywords.has(word)) continue;
+                if (!allowed.has(word)) hits.push(m[1]);
+            }
+            return { ok: hits.length === 0, hits };
+        }
+
+        function extractFromTable(sql) {
+            const m = sql.match(/\bfrom\s+([a-zA-Z_][a-zA-Z0-9_]*)\b/);
+            return m ? m[1].toLowerCase() : null;
+        }
+
+        function extractOrderBy(sql) {
+            const m = sql.match(/\border\s+by\s+([a-zA-Z_][a-zA-Z0-9_]*)(?:\s+(asc|desc))?\b/);
+            if (!m) return null;
+            return { col: m[1].toLowerCase(), dir: (m[2] || "asc").toLowerCase() };
+        }
+
+        function extractSelectPart(sql) {
+            const m = sql.match(/\bselect\s+([\s\S]*?)\s+\bfrom\b/);
+            return m ? m[1].toLowerCase() : "";
+        }
+
+        function hasToken(selectPart, token) {
+            const re = new RegExp(`\\b${token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
+            return re.test(selectPart);
+        }
+
+        function containsAny(sql, arr) { return arr.some(x => sql.includes(x)); }
+
+        function checkByRules(userRawSql, rules) {
+            const n = normalizeForCheck(userRawSql);
+            const noStr = stripStrings(n);
+
+            if (rules.from) {
+                const from = extractFromTable(noStr);
+                if (from !== rules.from.toLowerCase()) {
+                    return { ok: false, reason: `Falta o no coincide FROM ${rules.from}` };
+                }
+            }
+
+            if (rules.mustSelectAnyOrder && rules.mustSelectAnyOrder.length) {
+                const selectPart = extractSelectPart(noStr);
+                for (const col of rules.mustSelectAnyOrder) {
+                    if (!hasToken(selectPart, col.toLowerCase())) {
+                        return { ok: false, reason: `En SELECT falta la columna ${col}` };
+                    }
+                }
+            }
+
+            if (rules.whereAll && rules.whereAll.length) {
+                for (const frag of rules.whereAll) {
+                    if (!noStr.includes(frag)) {
+                        return { ok: false, reason: `En WHERE falta: ${frag}` };
+                    }
+                }
+            }
+
+            if (rules.whereAny && rules.whereAny.length) {
+                if (!containsAny(noStr, rules.whereAny)) {
+                    return { ok: false, reason: `En WHERE no aparece ninguna condición esperada` };
+                }
+            }
+
+            if (rules.orderBy) {
+                const ob = extractOrderBy(noStr);
+                if (!ob) return { ok: false, reason: `Falta ORDER BY ${rules.orderBy.col} ${rules.orderBy.dir}` };
+                if (ob.col !== rules.orderBy.col.toLowerCase()) return { ok: false, reason: `ORDER BY debe ser por ${rules.orderBy.col}` };
+                if ((ob.dir || "asc") !== rules.orderBy.dir.toLowerCase()) return { ok: false, reason: `ORDER BY debe ser ${rules.orderBy.dir.toUpperCase()}` };
+            }
+
+            return { ok: true, reason: "OK" };
+        }
+
+        // Tiempo (interno)
+        function showTime(label) {
+            const p = loadProgress();
+            const start = p.exerciseStartedAt;
+            const elapsed = (start ? (Date.now() - start) : null);
+            $("timeBox").textContent = `${label}\nEjercicio: ${p.lastExerciseId ?? "—"}\nTiempo ms: ${elapsed ?? "—"}`;
+            return elapsed;
+        }
+
+        // ✅ render del esquema en 2 columnas
+        function renderSchema() {
+            const wrap = $("schema");
+            wrap.innerHTML = "";
+            CONFIG.schema.forEach(t => {
+                const box = document.createElement("div");
+                box.className = "table-box";
+                box.innerHTML = `
+        <div class="table-title">🟦 <span>${escapeHtml(t.name)}</span></div>
+        <ul class="cols-list">
+          ${t.cols.map(c => `<li>${escapeHtml(c)}</li>`).join("")}
+        </ul>
+      `;
+                wrap.appendChild(box);
+            });
+        }
+
+        function loadProgress() {
+            try {
+                return JSON.parse(localStorage.getItem(storeKey)) || {
+                    done: 0,
+                    level: 1,
+                    lastIndexByLevel: {},
+                    exerciseStartedAt: null,
+                    lastExerciseId: null
+                };
+            } catch {
+                return { done: 0, level: 1, lastIndexByLevel: {}, exerciseStartedAt: null, lastExerciseId: null };
+            }
+        }
+
+        function saveProgress(p) { localStorage.setItem(storeKey, JSON.stringify(p)); }
+
+        // =======================
+        // ✅ filtro por tipo (menú)
+        // =======================
+        const filterKey = storeKey + "_filterType";
+        function getFilterType() {
+            return localStorage.getItem(filterKey) || "ALL";
+        }
+        function setFilterType(t) {
+            localStorage.setItem(filterKey, t);
+            applyMenuUI(t);
+        }
+        function applyMenuUI(t) {
+            const pill = $("filterPill");
+            pill.textContent = (t === "ALL") ? "Todos" : t;
+            document.querySelectorAll(".side-btn").forEach(b => {
+                b.classList.toggle("active", b.dataset.type === t);
+            });
+        }
+
+        function poolForLevel(level) {
+            return CONFIG.exercises.filter(e => e.level === level);
+        }
+
+        function poolForType(type) {
+            return CONFIG.exercises.filter(e => (e.type || "").toUpperCase() === type.toUpperCase());
+        }
+
+        function pickExerciseFromPool(pool, lastIndex) {
+            if (!pool.length) return null;
+            const idx = (lastIndex + 1) % pool.length;
+            return { ex: pool[idx], idx };
+        }
+
+        // =======================
+        // CodeMirror + línea rosa (interno)
+        // =======================
+        const editor = CodeMirror.fromTextArea(document.getElementById("sql"), {
+            mode: "text/x-sql",
+            theme: "material-darker",
+            lineNumbers: true,
+            indentUnit: 2,
+            tabSize: 2,
+            matchBrackets: true,
+            styleActiveLine: true
+        });
+
+        let lastMarkedLine = null;
+        function basicErrorCheck(sql) {
+            const quoteCount = (sql.match(/'/g) || []).length;
+            const quotesOdd = (quoteCount % 2) === 1;
+
+            let bal = 0;
+            for (const ch of sql) {
+                if (ch === "(") bal++;
+                if (ch === ")") bal--;
+            }
+            const parenBad = (bal !== 0);
+
+            return { hasError: quotesOdd || parenBad };
+        }
+        function clearLineMark() {
+            if (lastMarkedLine !== null) {
+                editor.removeLineClass(lastMarkedLine, "background", "cm-line-error");
+                lastMarkedLine = null;
+            }
+        }
+        function markCurrentLineIfError() {
+            clearLineMark();
+            const sql = editor.getValue();
+            const check = basicErrorCheck(sql);
+            if (!check.hasError) return;
+            const cur = editor.getCursor();
+            lastMarkedLine = cur.line;
+            editor.addLineClass(lastMarkedLine, "background", "cm-line-error");
+        }
+        editor.on("change", () => markCurrentLineIfError());
+        editor.on("cursorActivity", () => markCurrentLineIfError());
+
+        // =======================
+        // Terminal helpers
+        // =======================
+        function termWriteHTML(html) {
+            $("terminal").innerHTML = html;
+        }
+        function termWriteMsg(msg) {
+            termWriteHTML(`<div class="term-msg">${escapeHtml(msg)}</div>`);
+        }
+        function renderTable(rows, cols) {
+            if (!rows.length) {
+                return `<div class="term-msg">0 filas.</div>`;
+            }
+            const thead = `<tr>${cols.map(c => `<th>${escapeHtml(c.toUpperCase())}</th>`).join("")}</tr>`;
+            const tbody = rows.map(r => `<tr>${cols.map(c => `<td>${escapeHtml(r[c] ?? "")}</td>`).join("")}</tr>`).join("");
+            return `
+      <div class="term-msg">${rows.length} fila(s)</div>
+      <table class="term-table">
+        <thead>${thead}</thead>
+        <tbody>${tbody}</tbody>
+      </table>
+    `;
+        }
+        function renderQueryBlock(sql) {
+            return `<div class="term-msg"><b>SQL&gt;</b> ${escapeHtml(sql.trim())}</div><div style="height:8px;"></div>`;
+        }
+
+        // =======================
+        // Simulador (salida en TERMINAL)
+        // =======================
+        function runSimulatedAndRender(rawSql) {
+            const sql = normalizeForCheck(rawSql);
+
+            if (!sql.startsWith("select ")) {
+                termWriteHTML(renderQueryBlock(rawSql) + `<div class="term-msg">Solo se simula SELECT en esta versión.</div>`);
+                return;
+            }
+
+            const from = extractFromTable(sql);
+            if (!from || !SIM_DB[from]) {
+                termWriteHTML(renderQueryBlock(rawSql) + `<div class="term-msg">Tabla no soportada o falta FROM. Soportadas: employees, departments, locations.</div>`);
+                return;
+            }
+
+            const selPart = extractSelectPart(sql);
+            const isStar = /\b\*\b/.test(selPart);
+
+            let cols;
+            if (isStar) {
+                cols = Object.keys(SIM_DB[from][0] || {});
+            } else {
+                cols = selPart
+                    .split(",")
+                    .map(x => x.trim())
+                    .map(x => x.replace(/\bas\b\s+.+$/i, "").trim())
+                    .map(x => x.replace(/".+?"$/g, "").trim())
+                    .map(x => x.replace(/\(.+?\)$/g, "").trim())
+                    .filter(Boolean)
+                    .map(x => x.replace(/[^a-z0-9_]/g, ""));
+                cols = cols.filter(c => c.length);
+                if (!cols.length) {
+                    termWriteHTML(renderQueryBlock(rawSql) + `<div class="term-msg">No he podido interpretar las columnas del SELECT (simulación limitada).</div>`);
+                    return;
+                }
+            }
+
+            let rows = SIM_DB[from].map(r => ({ ...r }));
+
+            const whereM = sql.match(/\bwhere\s+([\s\S]*?)(\border\s+by\b|;|$)/);
+            if (whereM) {
+                const where = whereM[1].trim();
+                const parts = where.split(/\s+and\s+/i).map(x => x.trim()).filter(Boolean);
+
+                for (const p of parts) {
+                    let m = p.match(/^([a-z0-9_]+)\s+is\s+null$/i);
+                    if (m) {
+                        const col = m[1];
+                        rows = rows.filter(r => r[col] == null);
+                        continue;
+                    }
+
+                    m = p.match(/^([a-z0-9_]+)\s+between\s+([0-9]+)\s+and\s+([0-9]+)$/i);
+                    if (m) {
+                        const col = m[1], a = Number(m[2]), b = Number(m[3]);
+                        rows = rows.filter(r => Number(r[col]) >= a && Number(r[col]) <= b);
+                        continue;
+                    }
+
+                    m = p.match(/^([a-z0-9_]+)\s+in\s*\(([^)]+)\)$/i);
+                    if (m) {
+                        const col = m[1];
+                        const list = m[2].split(",").map(x => x.trim()).map(x => {
+                            if (x.startsWith("'") && x.endsWith("'")) return x.slice(1, -1).toLowerCase();
+                            const n = Number(x);
+                            return Number.isFinite(n) ? n : x.toLowerCase();
+                        });
+                        rows = rows.filter(r => list.includes(typeof r[col] === "string" ? r[col].toLowerCase() : r[col]));
+                        continue;
+                    }
+
+                    m = p.match(/^([a-z0-9_]+)\s+like\s+'([^']*)'$/i);
+                    if (m) {
+                        const col = m[1];
+                        const pat = m[2].toLowerCase();
+                        const re = new RegExp("^" + pat.replaceAll("%", ".*").replaceAll("_", ".") + "$");
+                        rows = rows.filter(r => String(r[col] ?? "").toLowerCase().match(re));
+                        continue;
+                    }
+
+                    m = p.match(/^([a-z0-9_]+)\s*(=|<|>)\s*(.+)$/i);
+                    if (m) {
+                        const col = m[1], op = m[2];
+                        let valRaw = m[3].trim();
+                        if (valRaw.endsWith(";")) valRaw = valRaw.slice(0, -1).trim();
+
+                        let val;
+                        if (valRaw.startsWith("'") && valRaw.endsWith("'")) val = valRaw.slice(1, -1).toLowerCase();
+                        else {
+                            const n = Number(valRaw);
+                            val = Number.isFinite(n) ? n : valRaw.toLowerCase();
+                        }
+
+                        rows = rows.filter(r => {
+                            const left = (typeof r[col] === "string") ? r[col].toLowerCase() : r[col];
+                            if (op === "=") return left === val;
+                            if (op === "<") return Number(left) < Number(val);
+                            if (op === ">") return Number(left) > Number(val);
+                            return false;
+                        });
+                        continue;
+                    }
+
+                    termWriteHTML(renderQueryBlock(rawSql) + `<div class="term-msg">WHERE no soportado en simulación: "${escapeHtml(p)}"</div>`);
+                    return;
+                }
+            }
+
+            const ob = extractOrderBy(sql);
+            if (ob) {
+                const { col, dir } = ob;
+                rows.sort((a, b) => {
+                    const av = a[col], bv = b[col];
+                    if (av == null && bv == null) return 0;
+                    if (av == null) return 1;
+                    if (bv == null) return -1;
+                    if (typeof av === "number" && typeof bv === "number") return av - bv;
+                    return String(av).localeCompare(String(bv));
+                });
+                if (dir === "desc") rows.reverse();
+            }
+
+            rows = rows.map(r => {
+                const out = {};
+                for (const c of cols) {
+                    out[c] = r[c];
+                }
+                return out;
+            });
+
+            termWriteHTML(renderQueryBlock(rawSql) + renderTable(rows, cols));
+        }
+
+        // =======================
+        // Ejercicios (con filtro por menú)
+        // =======================
+        function newExercise() {
+            const p = loadProgress();
+            const filterType = getFilterType();
+
+            let picked = null;
+
+            if (filterType === "ALL") {
+                const pool = poolForLevel(p.level);
+                const lastIndex = p.lastIndexByLevel[p.level] ?? -1;
+                picked = pickExerciseFromPool(pool, lastIndex);
+                if (picked) {
+                    p.lastIndexByLevel[p.level] = picked.idx;
+                }
+            } else {
+                const poolLvlType = CONFIG.exercises.filter(e =>
+                    e.level === p.level && (e.type || "").toUpperCase() === filterType.toUpperCase()
+                );
+                const key = `${p.level}:${filterType}`;
+                const last = p.lastIndexByLevel[key] ?? -1;
+                picked = pickExerciseFromPool(poolLvlType, last);
+                if (picked) {
+                    p.lastIndexByLevel[key] = picked.idx;
+                } else {
+                    const poolAny = poolForType(filterType);
+                    const key2 = `ALL:${filterType}`;
+                    const last2 = p.lastIndexByLevel[key2] ?? -1;
+                    picked = pickExerciseFromPool(poolAny, last2);
+                    if (!picked) {
+                        $("statement").innerHTML = "No hay ejercicios para este tipo todavía.";
+                        $("type").textContent = "—";
+                        return;
+                    }
+                    p.lastIndexByLevel[key2] = picked.idx;
+                }
+            }
+
+            if (!picked) {
+                $("statement").innerHTML = "No hay ejercicios para este nivel.";
+                $("type").textContent = "—";
+                return;
+            }
+
+            p.exerciseStartedAt = Date.now();
+            p.lastExerciseId = `${p.level}:${Date.now()}`;
+            saveProgress(p);
+
+            $("statement").innerHTML = picked.ex.statement;
+            $("type").textContent = picked.ex.type || "—";
+
+            editor.setValue("");
+            editor.focus();
+            $("msg").textContent = "";
+            clearLineMark();
+            setCheckMode("check");
+        }
+
+        function markDoneAuto() {
+            const p = loadProgress();
+            p.done += 1;
+
+            const bumpEvery = CONFIG.difficultyRule.bumpEvery;
+            const maxLevel = CONFIG.difficultyRule.maxLevel;
+            if (p.done % bumpEvery === 0) {
+                p.level = Math.min(p.level + 1, maxLevel);
+            }
+
+            saveProgress(p);
+            updateUI();
+            newExercise();
+        }
+
+        // =======================
+        // Botón Corregir/Siguiente
+        // =======================
+        let checkMode = "check"; // "check" | "next"
+        function setCheckMode(mode) {
+            checkMode = mode;
+            $("check").textContent = (mode === "next") ? "Siguiente ➜" : "Corregir ✅";
+        }
+
+        function getCurrentExerciseForCheck() {
+            const stmt = $("statement").innerHTML;
+            return CONFIG.exercises.find(e => e.statement === stmt) || null;
+        }
+
+        function checkOrNext() {
+            if (checkMode === "next") {
+                markDoneAuto();
+                return;
+            }
+
+            const userSQL = editor.getValue();
+
+            const fnCheck = hasOnlyAllowedFunctions(userSQL);
+            if (!fnCheck.ok) {
+                $("msg").innerHTML =
+                    `<span class="bad">❌ Funciones no permitidas:</span> ${fnCheck.hits.join(", ")}. Permitidas: ${CONFIG.allowedFunctions.join(", ")}`;
+                showTime("Tiempo al corregir:");
+                return;
+            }
+
+            const ex = getCurrentExerciseForCheck();
+            if (!ex) {
+                $("msg").innerHTML = `<span class="bad">❌ Error interno.</span> Pulsa “Nuevo ejercicio”.`;
+                showTime("Tiempo al corregir:");
+                return;
+            }
+
+            const result = checkByRules(userSQL, ex.rules || {});
+            showTime("Tiempo al corregir:");
+
+            if (result.ok) {
+                $("msg").innerHTML = `<span class="ok">✅ Correcto</span>`;
+                runSimulatedAndRender(userSQL);
+                setCheckMode("next");
+            } else {
+                $("msg").innerHTML = `<span class="bad">❌ Incorrecto</span> ${result.reason}`;
+            }
+        }
+
+        function updateUI() {
+            const p = loadProgress();
+            $("done").textContent = String(p.done);
+            $("level").textContent = String(p.level);
+            $("funcs").textContent = CONFIG.allowedFunctions.join(", ");
+
+            const preview = {
+                allowedFunctions: CONFIG.allowedFunctions,
+                difficultyRule: CONFIG.difficultyRule,
+                exercises: CONFIG.exercises.map(e => ({ level: e.level, type: e.type, statement: e.statement }))
+            };
+            $("configPreview").textContent = JSON.stringify(preview, null, 2);
+        }
+
+        function resetProgress() {
+            localStorage.removeItem(storeKey);
+            localStorage.removeItem(filterKey);
+            updateUI();
+            applyMenuUI("ALL");
+            newExercise();
+            termWriteMsg("Terminal limpio.");
+        }
+
+        // =======================
+        // INIT
+        // =======================
+        renderSchema();
+        updateUI();
+
+        const savedFilter = getFilterType();
+        applyMenuUI(savedFilter);
+
+        document.querySelectorAll(".side-btn").forEach(btn => {
+            btn.addEventListener("click", () => {
+                const t = btn.dataset.type;
+                setFilterType(t);
+                newExercise();
+            });
+        });
+
+        newExercise();
+        termWriteMsg("Listo. Escribe tu SQL y pulsa “Corregir ✅”.");
+
+        document.getElementById("new").addEventListener("click", newExercise);
+        document.getElementById("check").addEventListener("click", checkOrNext);
+        document.getElementById("reset").addEventListener("click", resetProgress);
+        document.getElementById("clearTerm").addEventListener("click", () => termWriteMsg("Terminal limpio."));
+    </script>
+</body>
+
+</html>
